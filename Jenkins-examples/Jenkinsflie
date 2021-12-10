@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+    environment {
+        ARTIFACTORY_LOCAL_RELEASE_REPO = "dataservice-dev"
+        ARTIFACTORY_LOCAL_SNAPSHOT_REPO = "dataservice-dev"
+    }
+    tools {
+        maven "maven-3.5.3"
+    }
+    parameters {
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'dev', name: 'BRANCH', type: 'PT_BRANCH_TAG'
+    }
+    stages {
+        stage('git clone') {
+            steps {
+                git branch: "${params.BRANCH}", credentialsId: '3edcbfcd-b340-4ea2-b68c-591e5b4435ba', url: 'https://git.name.cn/platform.ocp/ocp-service.git'
+            }
+        }
+        stage ('Artifactory configuration') {
+            steps {
+                rtServer (
+                    id: "ARTIFACTORY_SERVER",
+                    url: "http://10.50.30.243:8082/artifactory",
+                    credentialsId: 'jforg-artifactory'
+                )
+
+                rtMavenDeployer (
+                    id: "MAVEN_DEPLOYER",
+                    serverId: "ARTIFACTORY_SERVER",
+                    releaseRepo: ${ARTIFACTORY_LOCAL_RELEASE_REPO},
+                    snapshotRepo: ${ARTIFACTORY_LOCAL_SNAPSHOT_REPO}
+                )
+                //mvn依赖源
+                rtMavenResolver (
+                    id: "MAVEN_RESOLVER",
+                    serverId: "ARTIFACTORY_SERVER",
+                    releaseRepo: "maven",
+                    snapshotRepo: "maven"
+                )
+            }
+        }
+
+        stage ('Exec Maven') {
+            steps {
+                rtMavenRun (
+                    // Tool name from Jenkins configuration
+                    tool: "maven-3.5.3",
+                    pom: 'pom.xml',
+                    goals: '-B package -Dmaven.test.skip=true',
+                    deployerId: "MAVEN_DEPLOYER",
+                    resolverId: "MAVEN_RESOLVER"
+                )
+            }
+        }
+
+        stage ('Publish build info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "ARTIFACTORY_SERVER"
+                )
+            }
+        }
+    }
+}

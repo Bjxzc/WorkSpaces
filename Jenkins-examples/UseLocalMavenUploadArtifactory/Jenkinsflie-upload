@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+    tools {
+        maven "maven-3.5.3"
+    }
+    parameters {
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'dev', name: 'BRANCH', type: 'PT_BRANCH_TAG'
+    }
+    stages {
+        stage('git clone') {
+            steps {
+                git branch: "${params.BRANCH}", credentialsId: '3edcbfcd-b340-4ea2-b68c-591e5b4435ba', url: 'https://git.name.cn/platform.ocp/ocp-service.git'
+            }
+        }
+        stage('build') {
+            steps {
+                sh "mvn -B -f ./pom.xml clean package -Dmaven.test.skip=true"
+            }
+        }
+        stage('upload artifactory') {
+            steps {
+                rtUpload (
+                    serverId: "JForg",
+                    spec: """{
+                        "files": [
+                          {
+                          "pattern": "target/(*)-(*)-(*)-(*).jar",
+                          "target": "dataservice-dev2/dataservice/{2}/",
+                          "flat": "true",
+                          "props": "from=uat-jenkins"
+                          }
+                        ]
+                    }""",
+                    buildNumber: "${BUILD_ID}",
+                    buildName: "${JOB_BASE_NAME}",
+                )
+            }
+        }
+        stage('publish info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "JForg"
+                )
+            }
+        }
+    }
+}

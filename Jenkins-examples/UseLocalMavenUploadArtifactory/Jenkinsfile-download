@@ -1,0 +1,35 @@
+pipeline {
+    agent any
+    // parameters {
+    //     gitParameter branchFilter: 'origin/(.*)', defaultValue: 'dev', name: 'BRANCH', type: 'PT_BRANCH_TAG'
+    // }
+    stages {
+        stage('download from  artifactory') {
+            steps {
+                rtDownload (
+                    serverId: "JForg",
+                    spec:
+                    """{
+                        "files": [
+                          {
+                          "pattern": "dataservice-dev2/dataservice/gateway/(*).jar",
+                          "target": "./download/{1}.jar",
+                          "flat": "true",
+                          "recursive": "flase"
+                          }
+                        ]
+                    }""",
+                    buildNumber: "${BUILD_ID}",
+                    buildName: "${JOB_BASE_NAME}",
+                )
+            }
+        }
+        stage('publish info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "JForg"
+                )
+            }
+        }
+    }
+}

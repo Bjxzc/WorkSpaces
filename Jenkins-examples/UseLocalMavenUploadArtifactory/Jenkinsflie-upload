@@ -20,6 +20,7 @@ pipeline {
         stage('upload artifactory') {
             steps {
                 rtUpload (
+                // Obtain an Artifactory server instance, defined in Jenkins --> Manage Jenkins --> Configure System:
                     serverId: "JForg",
                     spec: """{
                         "files": [
